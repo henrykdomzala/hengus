@@ -11,8 +11,19 @@ extends CharacterBody2D
 @onready var walkable: WalkableMap = get_node(walkable_path)
 
 
+func _ready() -> void:
+	# Web builds need the canvas focused before keyboard input works.
+	if OS.has_feature("web"):
+		DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.pressed:
+		get_viewport().gui_release_focus()
+
+
 func _physics_process(delta: float) -> void:
-	var input_dir := Input.get_vector("move_left", "move_right", "move_up", "move_down")
+	var input_dir := _read_move_input()
 	if input_dir == Vector2.ZERO:
 		velocity = Vector2.ZERO
 		return
@@ -20,6 +31,21 @@ func _physics_process(delta: float) -> void:
 	_update_facing(input_dir)
 	velocity = input_dir.normalized() * move_speed
 	_move_and_slide_walkable(velocity * delta)
+
+
+func _read_move_input() -> Vector2:
+	var input_dir := Input.get_vector("move_left", "move_right", "move_up", "move_down")
+	if input_dir != Vector2.ZERO:
+		return input_dir
+
+	# Fallback for web / layout quirks: physical WASD + arrows.
+	input_dir = Vector2(
+		float(Input.is_physical_key_pressed(KEY_D) or Input.is_physical_key_pressed(KEY_RIGHT))
+			- float(Input.is_physical_key_pressed(KEY_A) or Input.is_physical_key_pressed(KEY_LEFT)),
+		float(Input.is_physical_key_pressed(KEY_S) or Input.is_physical_key_pressed(KEY_DOWN))
+			- float(Input.is_physical_key_pressed(KEY_W) or Input.is_physical_key_pressed(KEY_UP))
+	)
+	return input_dir
 
 
 func _move_and_slide_walkable(motion: Vector2) -> void:
@@ -35,17 +61,14 @@ func _move_and_slide_walkable(motion: Vector2) -> void:
 		if remaining.length_squared() < 0.0001:
 			break
 
-		# Slide along the wall instead of stopping hard.
 		var feet := global_position + foot_offset
 		var normal := walkable.estimate_wall_normal(feet)
 		if normal == Vector2.ZERO:
-			# Fallback: try axis-aligned slides.
 			_try_axis_slide(remaining)
 			break
 
 		remaining = remaining.slide(normal)
 
-		# Tiny nudge out of the wall so we don't stick in corners.
 		var nudge := -normal * 0.5
 		if walkable.can_stand_at(global_position + foot_offset + nudge):
 			global_position += nudge

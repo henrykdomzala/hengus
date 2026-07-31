@@ -22,14 +22,42 @@ var _size: Vector2i
 
 func _ready() -> void:
 	_map = get_node(map_sprite_path) as Sprite2D
-	_image = Image.new()
-	var err := _image.load(map_image_path)
-	if err != OK:
+	_image = _load_map_image(map_image_path)
+	if _image == null:
 		push_error("WalkableMap: nie udało się wczytać mapy: %s" % map_image_path)
 		return
 	_image.convert(Image.FORMAT_RGBA8)
 	_size = _image.get_size()
 	_build_walkable_mask()
+
+
+## Works in editor and exported Web builds (Image.load fails on res:// in PCK/web).
+func _load_map_image(path: String) -> Image:
+	if FileAccess.file_exists(path):
+		var bytes := FileAccess.get_file_as_bytes(path)
+		if bytes.size() > 0:
+			var from_buffer := Image.new()
+			var err := ERR_BUG
+			if path.ends_with(".png"):
+				err = from_buffer.load_png_from_buffer(bytes)
+			elif path.ends_with(".webp"):
+				err = from_buffer.load_webp_from_buffer(bytes)
+			elif path.ends_with(".jpg") or path.ends_with(".jpeg"):
+				err = from_buffer.load_jpg_from_buffer(bytes)
+			if err == OK and not from_buffer.is_empty():
+				return from_buffer
+
+	var texture := load(path) as Texture2D
+	if texture != null:
+		var from_texture := texture.get_image()
+		if from_texture != null and not from_texture.is_empty():
+			return from_texture.duplicate()
+
+	var from_path := Image.new()
+	if from_path.load(path) == OK and not from_path.is_empty():
+		return from_path
+
+	return null
 
 
 func _build_walkable_mask() -> void:
@@ -47,8 +75,16 @@ func _build_walkable_mask() -> void:
 	_walkable.create(_size)
 
 	var expand := floor_expand
+	if expand <= 0:
+		_walkable = raw
+		return
+
 	for y in range(_size.y):
 		for x in range(_size.x):
+			if raw.get_bitv(Vector2i(x, y)):
+				_walkable.set_bitv(Vector2i(x, y), true)
+				continue
+
 			var ok := false
 			for oy in range(-expand, expand + 1):
 				for ox in range(-expand, expand + 1):
@@ -82,9 +118,10 @@ func is_pixel_walkable(pixel: Vector2i) -> bool:
 
 
 func can_stand_at(world_pos: Vector2) -> bool:
+	if _walkable == null:
+		return false
 	var center := world_to_pixel(world_pos)
 	var radius := body_radius
-	# Sparse circle samples — lighter and less sticky than filling every pixel.
 	for y in range(center.y - radius, center.y + radius + 1):
 		for x in range(center.x - radius, center.x + radius + 1):
 			var dx := x - center.x
