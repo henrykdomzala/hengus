@@ -28,31 +28,54 @@ jobs:
           path: |
             ~/godot
             ~/.local/share/godot/export_templates
-          key: godot-4.7.1-stable-with-templates
+          key: godot-4.7.1-stable-templates-v2
 
       - name: Download Godot 4.7.1 and export templates
         if: steps.cache-godot.outputs.cache-hit != 'true'
         run: |
+          set -euo pipefail
           mkdir -p ~/godot
-          curl -sL https://github.com/godotengine/godot/releases/download/4.7.1-stable/Godot_v4.7.1-stable_linux.x86_64.zip -o /tmp/godot.zip
-          unzip -q /tmp/godot.zip -d ~/godot
+          curl -fL https://github.com/godotengine/godot/releases/download/4.7.1-stable/Godot_v4.7.1-stable_linux.x86_64.zip -o /tmp/godot.zip
+          unzip -o /tmp/godot.zip -d ~/godot
           mv ~/godot/Godot_v4.7.1-stable_linux.x86_64 ~/godot/godot
           chmod +x ~/godot/godot
-          curl -sL https://github.com/godotengine/godot/releases/download/4.7.1-stable/Godot_v4.7.1-stable_export_templates.tpz -o /tmp/templates.tpz
-          mkdir -p ~/.local/share/godot/export_templates/4.7.1.stable
-          unzip -q /tmp/templates.tpz -d /tmp/templates
-          mv /tmp/templates/templates/* ~/.local/share/godot/export_templates/4.7.1.stable/
+
+          curl -fL https://github.com/godotengine/godot/releases/download/4.7.1-stable/Godot_v4.7.1-stable_export_templates.tpz -o /tmp/templates.tpz
+          rm -rf /tmp/templates ~/.local/share/godot/export_templates/4.7.1.stable
+          mkdir -p /tmp/templates ~/.local/share/godot/export_templates/4.7.1.stable
+          unzip -o /tmp/templates.tpz -d /tmp/templates
+          # tpz contains a "templates/" directory
+          if [ -d /tmp/templates/templates ]; then
+            cp -a /tmp/templates/templates/. ~/.local/share/godot/export_templates/4.7.1.stable/
+          else
+            cp -a /tmp/templates/. ~/.local/share/godot/export_templates/4.7.1.stable/
+          fi
 
       - name: Ensure Godot binary is executable
         run: chmod +x ~/godot/godot
+
+      - name: Verify export templates
+        run: |
+          set -euo pipefail
+          TEMPLATE_DIR="$HOME/.local/share/godot/export_templates/4.7.1.stable"
+          echo "Templates in $TEMPLATE_DIR:"
+          ls -la "$TEMPLATE_DIR"
+          test -f "$TEMPLATE_DIR/web_release.zip"
+          test -f "$TEMPLATE_DIR/version.txt"
+          cat "$TEMPLATE_DIR/version.txt"
 
       - name: Import project
         run: ~/godot/godot --headless --path . --import || true
 
       - name: Export Web build
         run: |
+          set -euo pipefail
           mkdir -p build/web
           ~/godot/godot --headless --path . --export-release "Web" build/web/index.html
+          echo "Exported files:"
+          ls -lah build/web
+          test -f build/web/index.html
+          test -f build/web/index.wasm || test -n "$(ls build/web/*.wasm 2>/dev/null || true)"
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

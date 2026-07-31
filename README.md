@@ -4,8 +4,7 @@ Gra inspirowana *Among Us*, zbudowana w **Godot 4.7**.
 
 ## Graj w przeglądarce
 
-Po wdrożeniu GitHub Pages:
-`https://<twoj-user>.github.io/hengus/`
+https://henrykdomzala.github.io/hengus/
 
 ## Uruchomienie lokalne
 
