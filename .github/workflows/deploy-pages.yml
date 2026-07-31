@@ -65,17 +65,25 @@ jobs:
           cat "$TEMPLATE_DIR/version.txt"
 
       - name: Import project
-        run: ~/godot/godot --headless --path . --import || true
+        run: |
+          set -euo pipefail
+          # Generate editor settings + reimport with ETC2/ASTC for Web.
+          ~/godot/godot --headless --path . --editor --quit-after 1 || true
+          ~/godot/godot --headless --path . --import || true
 
       - name: Export Web build
         run: |
           set -euo pipefail
           mkdir -p build/web
-          ~/godot/godot --headless --path . --export-release "Web" build/web/index.html
+          ~/godot/godot --headless --path . --export-release "Web" build/web/index.html 2>&1 | tee /tmp/export.log
+          if ! test -f build/web/index.html; then
+            echo "Export failed. Log:"
+            cat /tmp/export.log
+            exit 1
+          fi
           echo "Exported files:"
           ls -lah build/web
-          test -f build/web/index.html
-          test -f build/web/index.wasm || test -n "$(ls build/web/*.wasm 2>/dev/null || true)"
+          test -n "$(ls build/web/*.wasm 2>/dev/null || true)"
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
