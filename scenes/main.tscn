@@ -1,0 +1,75 @@
+[gd_scene load_steps=9 format=3 uid="uid://main_scene_001"]
+
+[ext_resource type="Script" path="res://scripts/game_setup.gd" id="1_setup"]
+[ext_resource type="Script" path="res://scripts/walkable_map.gd" id="2_walkable"]
+[ext_resource type="Script" path="res://scripts/camera_follow.gd" id="3_camera"]
+[ext_resource type="Texture2D" path="res://assets/maps/station_map.png" id="4_map"]
+[ext_resource type="PackedScene" uid="uid://player_scene_001" path="res://scenes/player.tscn" id="5_player"]
+[ext_resource type="Shader" path="res://shaders/vision_fog.gdshader" id="6_vision_shader"]
+[ext_resource type="Script" path="res://scripts/vision_fog.gd" id="7_vision"]
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_vision"]
+shader = ExtResource("6_vision_shader")
+shader_parameter/player_px = Vector2(640, 360)
+shader_parameter/viewport_size = Vector2(1280, 720)
+shader_parameter/vision_radius = 300.0
+shader_parameter/softness = 35.0
+shader_parameter/fog_color = Color(0.02, 0.03, 0.06, 0.94)
+
+[node name="Main" type="Node2D"]
+script = ExtResource("1_setup")
+
+[node name="Map" type="Sprite2D" parent="."]
+scale = Vector2(2.5, 2.5)
+texture = ExtResource("4_map")
+centered = false
+
+[node name="WalkableMap" type="Node" parent="."]
+script = ExtResource("2_walkable")
+map_image_path = "res://assets/maps/station_map.png"
+map_sprite_path = NodePath("../Map")
+brightness_threshold = 0.22
+preferred_spawn = Vector2i(300, 280)
+floor_expand = 2
+body_radius = 2
+
+[node name="Player" parent="." instance=ExtResource("5_player")]
+position = Vector2(750, 700)
+collision_mask = 0
+walkable_path = NodePath("../WalkableMap")
+
+[node name="Camera2D" type="Camera2D" parent="."]
+position = Vector2(750, 700)
+script = ExtResource("3_camera")
+target_path = NodePath("../Player")
+zoom_level = Vector2(0.65, 0.65)
+
+[node name="VisionLayer" type="CanvasLayer" parent="."]
+layer = 1
+
+[node name="VisionFog" type="ColorRect" parent="VisionLayer"]
+material = SubResource("ShaderMaterial_vision")
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+script = ExtResource("7_vision")
+player_path = NodePath("../../Player")
+vision_radius_world = 300.0
+softness_world = 35.0
+
+[node name="UI" type="CanvasLayer" parent="."]
+layer = 2
+
+[node name="Hint" type="Label" parent="UI"]
+offset_left = 16.0
+offset_top = 12.0
+offset_right = 420.0
+offset_bottom = 40.0
+theme_override_colors/font_color = Color(0.9, 0.95, 1, 0.9)
+theme_override_colors/font_shadow_color = Color(0, 0, 0, 0.8)
+theme_override_constants/shadow_offset_x = 1
+theme_override_constants/shadow_offset_y = 1
+text = "WASD / strzałki — poruszaj się po stacji"

@@ -1,0 +1,20 @@
+# Godot 4+
+
+.godot/
+*.translation
+
+# Local / CI web export output
+build/
+
+# Mono / C#
+.mono/
+data_*/
+mono_crash.*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+*.swp
